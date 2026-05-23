@@ -1,0 +1,97 @@
+name: CI
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  TOKIMO_LIB_VERSION: "1.0.3"
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libudfread (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libudfread-dev
+
+      - name: Install libudfread (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libudfread
+
+      - name: Download tokimo-lib (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p bin/tokimo-lib/current
+          curl -sL "https://github.com/tokimo-lab/tokimo-lib/releases/download/v${{ env.TOKIMO_LIB_VERSION }}/tokimo-lib-linux-x86_64.tar.zst" | tar --zstd -xf - -C bin/tokimo-lib/current
+          echo "TOKIMO_DEP_LIBVIPS_DIR=${{ github.workspace }}/bin/tokimo-lib/current" >> "$GITHUB_ENV"
+          echo "FFMPEG_LIBS_DIR=${{ github.workspace }}/bin/tokimo-lib/current/lib" >> "$GITHUB_ENV"
+          echo "FFMPEG_INCLUDE_DIR=${{ github.workspace }}/bin/tokimo-lib/current/include" >> "$GITHUB_ENV"
+          echo "FFMPEG_PKG_CONFIG_PATH=${{ github.workspace }}/bin/tokimo-lib/current/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=${{ github.workspace }}/bin/tokimo-lib/current/lib:${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Download tokimo-lib (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p bin/tokimo-lib/current
+          curl -sL "https://github.com/tokimo-lab/tokimo-lib/releases/download/v${{ env.TOKIMO_LIB_VERSION }}/tokimo-lib-macos-aarch64.tar.zst" | tar --zstd -xf - -C bin/tokimo-lib/current
+          echo "TOKIMO_DEP_LIBVIPS_DIR=${{ github.workspace }}/bin/tokimo-lib/current" >> "$GITHUB_ENV"
+          echo "FFMPEG_LIBS_DIR=${{ github.workspace }}/bin/tokimo-lib/current/lib" >> "$GITHUB_ENV"
+          echo "FFMPEG_INCLUDE_DIR=${{ github.workspace }}/bin/tokimo-lib/current/include" >> "$GITHUB_ENV"
+          echo "FFMPEG_PKG_CONFIG_PATH=${{ github.workspace }}/bin/tokimo-lib/current/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "DYLD_LIBRARY_PATH=${{ github.workspace }}/bin/tokimo-lib/current/lib:${DYLD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo build
+        run: cargo build
+
+  lint:
+    name: fmt & clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libudfread
+        run: sudo apt-get update && sudo apt-get install -y libudfread-dev
+
+      - name: Download tokimo-lib
+        shell: bash
+        run: |
+          mkdir -p bin/tokimo-lib/current
+          curl -sL "https://github.com/tokimo-lab/tokimo-lib/releases/download/v${{ env.TOKIMO_LIB_VERSION }}/tokimo-lib-linux-x86_64.tar.zst" | tar --zstd -xf - -C bin/tokimo-lib/current
+          echo "TOKIMO_DEP_LIBVIPS_DIR=${{ github.workspace }}/bin/tokimo-lib/current" >> "$GITHUB_ENV"
+          echo "FFMPEG_LIBS_DIR=${{ github.workspace }}/bin/tokimo-lib/current/lib" >> "$GITHUB_ENV"
+          echo "FFMPEG_INCLUDE_DIR=${{ github.workspace }}/bin/tokimo-lib/current/include" >> "$GITHUB_ENV"
+          echo "FFMPEG_PKG_CONFIG_PATH=${{ github.workspace }}/bin/tokimo-lib/current/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=${{ github.workspace }}/bin/tokimo-lib/current/lib:${LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt
+        run: cargo fmt --check
+
+      - name: cargo clippy
+        run: cargo clippy -- -D warnings
