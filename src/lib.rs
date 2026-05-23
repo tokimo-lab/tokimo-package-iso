@@ -18,16 +18,15 @@
 //! The two `_with` variants take `Arc<dyn ReadAt>` and form the real core;
 //! the `Arc<Vfs>`-based wrappers are convenience adapters.
 
-// libudfread is a Unix C library; we currently package it for Linux + macOS only
-// (see build.rs). Other Unix-likes (FreeBSD, NetBSD, …) fall back to the stub
-// so the FFI compilation and the link directive stay in sync.
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+// libudfread is bundled inside tokimo-lib (transitive dep of libbluray).
+// Supported on Linux, macOS, and Windows. Other platforms fall back to the stub.
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 mod iso_reader;
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 #[path = "iso_reader_stub.rs"]
 mod iso_reader;
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 mod udfread_ffi;
 
 mod meta;

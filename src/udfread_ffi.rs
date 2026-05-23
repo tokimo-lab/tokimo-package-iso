@@ -1,14 +1,14 @@
 //! Raw FFI bindings to libudfread (VLC/libbluray UDF 2.50 reader).
 //!
-//! libudfread is installed at `/usr/lib/x86_64-linux-gnu/libudfread.so`.
-//! Headers: `/usr/include/udfread/udfread.h`, `/usr/include/udfread/blockinput.h`.
+//! libudfread is bundled inside tokimo-lib (transitive dependency of libbluray).
+//! Linked via FFMPEG_LIBS_DIR at build time — no system install required.
 //!
 //! The key extension point is `udfread_block_input`: a vtable struct that libudfread
 //! calls to read raw 2048-byte sectors from the image source.  We overlay it with
 //! `VfsBlockInput` (same layout, extra Rust fields after the vtable) so the C
 //! callbacks can reach the VFS closure via a plain pointer cast.
 
-#![cfg(any(target_os = "linux", target_os = "macos"))]
+#![cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 #![allow(unsafe_code)]
 
 use std::ffi::c_int;
